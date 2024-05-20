@@ -222,3 +222,164 @@ export async function tasksOpenInDayOfWeek(req, res) {
 
   return res.send({ data, status: "success" });
 }
+
+// get tasks finished on weekend by user
+export async function tasksFinishedOnWeekend(req, res) {
+  // check if cache exists
+  var cacheData = await client.get(req.user.id + `:report6`);
+  if (!cacheData) {
+    // Get tasks finished on weekend
+    let tasks = await Task.findAll({
+      where: {
+        userId: req.user.id,
+        status: true,
+        completedAt: {
+          [Op.ne]: null,
+        },
+        [Op.or]: [
+          sequelize.where(
+            sequelize.fn("DAYNAME", sequelize.col("completedAt")),
+            "Saturday"
+          ),
+          sequelize.where(
+            sequelize.fn("DAYNAME", sequelize.col("completedAt")),
+            "Sunday"
+          ),
+        ],
+      },
+    }).catch(console.log);
+    client.set(
+      req.user.id + `:report6`,
+      JSON.stringify(tasks),
+      "EX",
+      process.env.REDIS_EXPIRE
+    );
+    return res.send({ data: tasks, status: "success" });
+  } else {
+    let tasks = JSON.parse(cacheData);
+    return res.send({ data: tasks, status: "success", source: "redis cache" });
+  }
+}
+
+// get weekday with most time spent by user on tasks
+export async function weekdayWithMostTimeSpent(req, res) {
+  var data = {
+    source: "mysql db",
+  };
+  // check if cache exists
+  var cacheData = await client.get(req.user.id + `:report7`);
+  if (!cacheData) {
+    let sql = `
+            SELECT DAYNAME(completedAt) AS weekday, SUM(TIMESTAMPDIFF(MINUTE, startedAt, completedAt)) AS totalMinutes
+            FROM Tasks
+            WHERE userId = ${req.user.id} AND completedAt IS NOT NULL
+            GROUP BY weekday
+            ORDER BY totalMinutes DESC
+            LIMIT 1
+        `;
+    let result = await sequelize.query(sql, null, { raw: true });
+    if (result.length > 0) {
+      data = { ...result[0], ...data };
+    }
+    client.set(
+      req.user.id + `:report7`,
+      JSON.stringify(data),
+      "EX",
+      process.env.REDIS_EXPIRE
+    );
+  } else {
+    data = { ...JSON.parse(cacheData), source: "redis cache" };
+  }
+  return res.send({ data, status: "success" });
+}
+
+// get users who finished tasks on weekend
+export async function usersFinishedTasksOnWeekend(req, res) {
+  // check if cache exists
+  var cacheData = await client.get(`usersFinishedTasksOnWeekend`);
+  if (!cacheData) {
+    // Get users who finished tasks on weekend
+    let users = await Task.findAll({
+      attributes: ["userId"],
+      where: {
+        status: true,
+        completedAt: {
+          [Op.ne]: null,
+        },
+        [Op.or]: [
+          sequelize.where(
+            sequelize.fn("DAYNAME", sequelize.col("completedAt")),
+            "Saturday"
+          ),
+          sequelize.where(
+            sequelize.fn("DAYNAME", sequelize.col("completedAt")),
+            "Sunday"
+          ),
+        ],
+      },
+      group: ["userId"],
+    }).catch(console.log);
+    client.set(
+      `usersFinishedTasksOnWeekend`,
+      JSON.stringify(users),
+      "EX",
+      process.env.REDIS_EXPIRE
+    );
+    return res.send({ data: users, status: "success" });
+  } else {
+    let users = JSON.parse(cacheData);
+    return res.send({ data: users, status: "success", source: "redis cache" });
+  }
+}
+
+// get users sorted by time spent on tasks
+export async function getUsersSortedByTimeSpent(req, res) {
+  // check if cache exists
+  var cacheData = await client.get(`usersSortedByTimeSpent`);
+  if (!cacheData) {
+    let sql = `
+            SELECT userId, SUM(TIMESTAMPDIFF(MINUTE, startedAt, completedAt)) AS totalMinutes
+            FROM Tasks
+            WHERE completedAt IS NOT NULL
+            GROUP BY userId
+            ORDER BY totalMinutes ASC
+        `;
+    let result = await sequelize.query(sql, null, { raw: true });
+    client.set(
+      `usersSortedByTimeSpent`,
+      JSON.stringify(result),
+      "EX",
+      process.env.REDIS_EXPIRE
+    );
+    return res.send({ data: result, status: "success" });
+  } else {
+    let result = JSON.parse(cacheData);
+    return res.send({ data: result, status: "success", source: "redis cache" });
+  }
+}
+
+// get users with low completion rate
+export async function getUsersWithLowCompletionRate(req, res) {
+  // check if cache exists
+  var cacheData = await client.get(`usersWithLowCompletionRate`);
+  if (!cacheData) {
+    let sql = `
+            SELECT userId, COUNT(*) AS totalTasks, SUM(status) AS completedTasks
+            FROM Tasks
+            WHERE completedAt IS NOT NULL
+            GROUP BY userId
+            HAVING (completedTasks / totalTasks) < 0.3
+        `;
+    let result = await sequelize.query(sql, null, { raw: true });
+    client.set(
+      `usersWithLowCompletionRate`,
+      JSON.stringify(result),
+      "EX",
+      process.env.REDIS_EXPIRE
+    );
+    return res.send({ data: result, status: "success" });
+  } else {
+    let result = JSON.parse(cacheData);
+    return res.send({ data: result, status: "success", source: "redis cache" });
+  }
+}
