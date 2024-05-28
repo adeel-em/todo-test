@@ -222,15 +222,14 @@ export async function tasksOpenInDayOfWeek(req, res) {
 
   return res.send({ data, status: "success" });
 }
-
 // get tasks finished on weekend by user
 export async function tasksFinishedOnWeekend(req, res) {
   try {
     // check if cache exists
-    var cacheData = await client.get(req.user.id + `:report6`);
+    const cacheData = await client.get(req.user.id + `:report6`);
     if (!cacheData) {
       // Get tasks finished on weekend
-      let tasks = await Task.findAll({
+      const tasks = await Task.findAll({
         where: {
           userId: req.user.id,
           status: true,
@@ -257,7 +256,7 @@ export async function tasksFinishedOnWeekend(req, res) {
       );
       return res.send({ data: tasks, status: "success" });
     } else {
-      let tasks = JSON.parse(cacheData);
+      const tasks = JSON.parse(cacheData);
       return res.send({
         data: tasks,
         status: "success",
@@ -273,23 +272,23 @@ export async function tasksFinishedOnWeekend(req, res) {
 // get weekday with most time spent by user on tasks
 export async function weekdayWithMostTimeSpent(req, res) {
   try {
-    var data = {
+    const data = {
       source: "mysql db",
     };
     // check if cache exists
-    var cacheData = await client.get(req.user.id + `:report7`);
+    const cacheData = await client.get(req.user.id + `:report7`);
     if (!cacheData) {
-      let sql = `
-                        SELECT DAYNAME(completedAt) AS weekday, SUM(TIMESTAMPDIFF(MINUTE, startedAt, completedAt)) AS totalMinutes
-                        FROM Tasks
-                        WHERE userId = ${req.user.id} AND completedAt IS NOT NULL
-                        GROUP BY weekday
-                        ORDER BY totalMinutes DESC
-                        LIMIT 1
-                `;
-      let result = await sequelize.query(sql, null, { raw: true });
+      const sql = `
+        SELECT DAYNAME(completedAt) AS weekday, SUM(TIMESTAMPDIFF(MINUTE, startedAt, completedAt)) AS totalMinutes
+        FROM Tasks
+        WHERE userId = ${req.user.id} AND completedAt IS NOT NULL
+        GROUP BY weekday
+        ORDER BY totalMinutes DESC
+        LIMIT 1
+      `;
+      const result = await sequelize.query(sql, null, { raw: true });
       if (result.length > 0) {
-        data = { ...result[0], ...data };
+        Object.assign(data, result[0]);
       }
       client.set(
         req.user.id + `:report7`,
@@ -298,7 +297,7 @@ export async function weekdayWithMostTimeSpent(req, res) {
         process.env.REDIS_EXPIRE
       );
     } else {
-      data = { ...JSON.parse(cacheData), source: "redis cache" };
+      Object.assign(data, JSON.parse(cacheData), { source: "redis cache" });
     }
     return res.send({ data, status: "success" });
   } catch (error) {
@@ -311,10 +310,10 @@ export async function weekdayWithMostTimeSpent(req, res) {
 export async function usersFinishedTasksOnWeekend(req, res) {
   try {
     // check if cache exists
-    var cacheData = await client.get(`usersFinishedTasksOnWeekend`);
+    const cacheData = await client.get(`usersFinishedTasksOnWeekend`);
     if (!cacheData) {
       // Get users who finished tasks on weekend
-      let users = await Task.findAll({
+      const users = await Task.findAll({
         attributes: ["userId"],
         where: {
           status: true,
@@ -342,7 +341,7 @@ export async function usersFinishedTasksOnWeekend(req, res) {
       );
       return res.send({ data: users, status: "success" });
     } else {
-      let users = JSON.parse(cacheData);
+      const users = JSON.parse(cacheData);
       return res.send({
         data: users,
         status: "success",
@@ -359,16 +358,16 @@ export async function usersFinishedTasksOnWeekend(req, res) {
 export async function getUsersSortedByTimeSpent(req, res) {
   try {
     // check if cache exists
-    var cacheData = await client.get(`usersSortedByTimeSpent`);
+    const cacheData = await client.get(`usersSortedByTimeSpent`);
     if (!cacheData) {
-      let sql = `
-                        SELECT userId, SUM(TIMESTAMPDIFF(MINUTE, startedAt, completedAt)) AS totalMinutes
-                        FROM Tasks
-                        WHERE completedAt IS NOT NULL
-                        GROUP BY userId
-                        ORDER BY totalMinutes ASC
-                `;
-      let result = await sequelize.query(sql, null, { raw: true });
+      const sql = `
+        SELECT userId, SUM(TIMESTAMPDIFF(MINUTE, startedAt, completedAt)) AS totalMinutes
+        FROM Tasks
+        WHERE completedAt IS NOT NULL
+        GROUP BY userId
+        ORDER BY totalMinutes ASC
+      `;
+      const result = await sequelize.query(sql, null, { raw: true });
       client.set(
         `usersSortedByTimeSpent`,
         JSON.stringify(result),
@@ -377,7 +376,7 @@ export async function getUsersSortedByTimeSpent(req, res) {
       );
       return res.send({ data: result, status: "success" });
     } else {
-      let result = JSON.parse(cacheData);
+      const result = JSON.parse(cacheData);
       return res.send({
         data: result,
         status: "success",
@@ -394,16 +393,16 @@ export async function getUsersSortedByTimeSpent(req, res) {
 export async function getUsersWithLowCompletionRate(req, res) {
   try {
     // check if cache exists
-    var cacheData = await client.get(`usersWithLowCompletionRate`);
+    const cacheData = await client.get(`usersWithLowCompletionRate`);
     if (!cacheData) {
-      let sql = `
-                        SELECT userId, COUNT(*) AS totalTasks, SUM(status) AS completedTasks
-                        FROM Tasks
-                        WHERE completedAt IS NOT NULL
-                        GROUP BY userId
-                        HAVING (completedTasks / totalTasks) < 0.3
-                `;
-      let result = await sequelize.query(sql, null, { raw: true });
+      const sql = `
+        SELECT userId, COUNT(*) AS totalTasks, SUM(status) AS completedTasks
+        FROM Tasks
+        WHERE completedAt IS NOT NULL
+        GROUP BY userId
+        HAVING (completedTasks / totalTasks) < 0.3
+      `;
+      const result = await sequelize.query(sql, null, { raw: true });
       client.set(
         `usersWithLowCompletionRate`,
         JSON.stringify(result),
@@ -412,7 +411,7 @@ export async function getUsersWithLowCompletionRate(req, res) {
       );
       return res.send({ data: result, status: "success" });
     } else {
-      let result = JSON.parse(cacheData);
+      const result = JSON.parse(cacheData);
       return res.send({
         data: result,
         status: "success",
