@@ -75,6 +75,33 @@ router.get("/v1/report/overDueTasks", [auth], overDueTasks);
 router.get("/v1/report/maxTasksCompletionDay", [auth], maxTasksCompletionDay);
 router.get("/v1/report/tasksOpenInDayOfWeek", [auth], tasksOpenInDayOfWeek);
 
+// Reports
+router.get(
+  "/v1/report/tasksFinishedOnWeekend",
+  [auth],
+  taskController.tasksFinishedOnWeekend
+);
+router.get(
+  "/v1/report/weekdayWithMostTimeSpent",
+  [auth],
+  taskController.weekdayWithMostTimeSpent
+);
+router.get(
+  "/v1/report/usersFinishedTasksOnWeekend",
+  [auth],
+  taskController.usersFinishedTasksOnWeekend
+);
+router.get(
+  "/v1/report/getUsersSortedByTimeSpent",
+  [auth],
+  taskController.getUsersSortedByTimeSpent
+);
+router.get(
+  "/v1/report/getUsersWithLowCompletionRate",
+  [auth],
+  taskController.getUsersWithLowCompletionRate
+);
+
 // Similar tasks
 router.get("/v1/similar-tasks", auth, taskController.similarTasks);
 
